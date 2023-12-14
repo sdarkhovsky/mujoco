@@ -99,10 +99,14 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset) {
   mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
-std::vector<mjtNum> CtrlNoise(const mjModel* m, mjtNum ctrlnoise) {
+std::vector<mjtNum> CtrlNoise(const mjModel* m) {
   static int step=0;
   std::vector<mjtNum> ctrl;
-  step++;
+
+  // inject pseudo-random control noise
+  // create pseudo-random control sequence
+  mjtNum ctrlnoise = 0.2;
+
   for (int i = 0; i < m->nu; i++) {
     mjtNum center = 0.0;
     mjtNum radius = 1.0;
@@ -112,16 +116,14 @@ std::vector<mjtNum> CtrlNoise(const mjModel* m, mjtNum ctrlnoise) {
       radius = (range[1] - range[0]) / 2;
     }
     radius *= ctrlnoise;
+    step++;
     ctrl.push_back(center + radius * (2 * mju_Halton(step, i+2) - 1));
   }
   return ctrl;
 }
 
 void send_controls() {
-    // inject pseudo-random control noise
-    // create pseudo-random control sequence
-    mjtNum ctrlnoise = 0.01;
-    std::vector<mjtNum> ctrl = CtrlNoise(m, ctrlnoise);
+    std::vector<mjtNum> ctrl = CtrlNoise(m);
     mju_copy(d->ctrl, ctrl.data(), m->nu);
 }
 
