@@ -14,6 +14,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <vector>
+
 
 #include <GLFW/glfw3.h>
 #include <mujoco/mujoco.h>
@@ -32,7 +34,6 @@ bool button_middle = false;
 bool button_right =  false;
 double lastx = 0;
 double lasty = 0;
-
 
 // keyboard callback
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods) {
@@ -98,6 +99,31 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset) {
   mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
+std::vector<mjtNum> CtrlNoise(const mjModel* m, mjtNum ctrlnoise) {
+  static int step=0;
+  std::vector<mjtNum> ctrl;
+  step++;
+  for (int i = 0; i < m->nu; i++) {
+    mjtNum center = 0.0;
+    mjtNum radius = 1.0;
+    mjtNum* range = m->actuator_ctrlrange + 2 * i;
+    if (m->actuator_ctrllimited[i]) {
+      center = (range[1] + range[0]) / 2;
+      radius = (range[1] - range[0]) / 2;
+    }
+    radius *= ctrlnoise;
+    ctrl.push_back(center + radius * (2 * mju_Halton(step, i+2) - 1));
+  }
+  return ctrl;
+}
+
+void send_controls() {
+    // inject pseudo-random control noise
+    // create pseudo-random control sequence
+    mjtNum ctrlnoise = 0.01;
+    std::vector<mjtNum> ctrl = CtrlNoise(m, ctrlnoise);
+    mju_copy(d->ctrl, ctrl.data(), m->nu);
+}
 
 // main function
 int main(int argc, const char** argv) {
@@ -155,6 +181,7 @@ int main(int argc, const char** argv) {
     //  Otherwise add a cpu timer and exit this loop when it is time to render.
     mjtNum simstart = d->time;
     while (d->time - simstart < 1.0/60.0) {
+      send_controls();
       mj_step(m, d);
     }
 
