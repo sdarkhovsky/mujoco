@@ -96,6 +96,16 @@ target_link_libraries(
 )
 target_link_options(basic PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
 
+add_executable(aisim aisim.cc)
+target_compile_options(aisim PUBLIC ${MUJOCO_SAMPLE_COMPILE_OPTIONS})
+target_link_libraries(
+  aisim
+  mujoco::mujoco
+  glfw
+  Threads::Threads
+)
+target_link_options(aisim PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
+
 add_executable(record record.cc array_safety.h)
 target_compile_options(record PUBLIC ${MUJOCO_SAMPLE_COMPILE_OPTIONS})
 target_link_libraries(
@@ -108,6 +118,7 @@ target_link_options(record PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
 
 if(APPLE AND MUJOCO_BUILD_MACOS_FRAMEWORKS)
   embed_in_bundle(basic simulate)
+  embed_in_bundle(aisim simulate)  
   embed_in_bundle(compile simulate)
   embed_in_bundle(record simulate)
   embed_in_bundle(testspeed simulate)
@@ -126,6 +137,7 @@ if(_INSTALL_SAMPLES)
   target_add_rpath(
     TARGETS
     basic
+    aisim    
     compile
     record
     testspeed
@@ -139,6 +151,7 @@ if(_INSTALL_SAMPLES)
 
   install(
     TARGETS basic
+            aisim
             compile
             record
             testspeed
