@@ -15,10 +15,12 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
-
+#include <chrono>
 
 #include <GLFW/glfw3.h>
 #include <mujoco/mujoco.h>
+#include "array_safety.h"
+
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
@@ -105,7 +107,7 @@ std::vector<mjtNum> CtrlNoise(const mjModel* m) {
 
   // inject pseudo-random control noise
   // create pseudo-random control sequence
-  mjtNum ctrlnoise = 0.2;
+  mjtNum ctrlnoise = 0.01;
 
   for (int i = 0; i < m->nu; i++) {
     mjtNum center = 0.0;
@@ -122,18 +124,34 @@ std::vector<mjtNum> CtrlNoise(const mjModel* m) {
   return ctrl;
 }
 
-void send_controls() {
-    std::vector<mjtNum> ctrl = CtrlNoise(m);
-    mju_copy(d->ctrl, ctrl.data(), m->nu);
+void send_controls(const char* actuator_name, mjtNum actuator_val) {
+    for (int i = 0; i < m->nu; i++) {
+      if (!std::strcmp(actuator_name, m->names + m->name_actuatoradr[i])) {
+          mju_copy(&d->ctrl[i], &actuator_val, 1);
+          break;
+      }
+    }
 }
+
+
+/*
+command line examples:  
+gdb --args ./aisim ../model/humanoid.xml hip_x_right 0.1
+./aisim ../model/humanoid.xml elbow_right 0.05 
+*/
 
 // main function
 int main(int argc, const char** argv) {
-  // check command-line arguments
-  if (argc!=2) {
-    std::printf(" USAGE:  aisim modelfile\n");
-    return 0;
+
+  char actuator_name[100];  // see actuator in humanoid.xml, e.g. elbow_right, hip_x_right, etc.
+  double actuator_val;      
+  if (std::strlen(argv[2]) > sizeof(actuator_name)/sizeof(char)) {
+    printf("actuator_name too long\n");
+    return 1;
   }
+
+  std::sscanf(argv[2], "%s", actuator_name);  
+  std::sscanf(argv[3], "%lf", &actuator_val);  
 
   // load and compile model
   char error[1000] = "Could not load binary model";
@@ -175,16 +193,17 @@ int main(int argc, const char** argv) {
   glfwSetMouseButtonCallback(window, mouse_button);
   glfwSetScrollCallback(window, scroll);
 
+  using namespace std::chrono;
+  auto prev_time = system_clock::now();
+
   // run main loop, target real-time simulation and 60 fps rendering
   while (!glfwWindowShouldClose(window)) {
-    // advance interactive simulation for 1/60 sec
-    //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
-    //  this loop will finish on time for the next frame to be rendered at 60 fps.
-    //  Otherwise add a cpu timer and exit this loop when it is time to render.
-    mjtNum simstart = d->time;
-    while (d->time - simstart < 1.0/60.0) {
-      send_controls();
-      mj_step(m, d);
+
+    if (duration_cast<duration<double>>(system_clock::now() - prev_time).count() > 1.0/20.0) {
+      send_controls(actuator_name, actuator_val);
+      mj_step(m, d);    
+      prev_time = system_clock::now();
+      //actuator_val=actuator_val+0.01;
     }
 
     // get framebuffer viewport
