@@ -106,13 +106,13 @@ target_link_libraries(
 )
 target_link_options(aisim PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
 
-add_executable(aisim_socket_client aisim_socket_client.cc)
-target_compile_options(aisim_socket_client PUBLIC ${MUJOCO_SAMPLE_COMPILE_OPTIONS})
+add_executable(aisim_client aisim_client.cc)
+target_compile_options(aisim_client PUBLIC ${MUJOCO_SAMPLE_COMPILE_OPTIONS})
 target_link_libraries(
-  aisim_socket_client
+  aisim_client
   Threads::Threads
 )
-target_link_options(aisim_socket_client PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
+target_link_options(aisim_client PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
 
 add_executable(record record.cc array_safety.h)
 target_compile_options(record PUBLIC ${MUJOCO_SAMPLE_COMPILE_OPTIONS})
@@ -127,7 +127,7 @@ target_link_options(record PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
 if(APPLE AND MUJOCO_BUILD_MACOS_FRAMEWORKS)
   embed_in_bundle(basic simulate)
   embed_in_bundle(aisim simulate)  
-  embed_in_bundle(aisim_socket_client simulate)    
+  embed_in_bundle(aisim_client simulate)    
   embed_in_bundle(compile simulate)
   embed_in_bundle(record simulate)
   embed_in_bundle(testspeed simulate)
@@ -147,7 +147,7 @@ if(_INSTALL_SAMPLES)
     TARGETS
     basic
     aisim    
-    aisim_socket_client
+    aisim_client
     compile
     record
     testspeed
@@ -162,7 +162,7 @@ if(_INSTALL_SAMPLES)
   install(
     TARGETS basic
             aisim
-            aisim_socket_client
+            aisim_client
             compile
             record
             testspeed

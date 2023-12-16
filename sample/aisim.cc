@@ -208,6 +208,9 @@ void communicate(CommunicateParams* communicate_params)
         printf("%s\n", buffer);
         send(new_socket, hello, strlen(hello), 0);
       }
+      // for simplicity close socket after one exchange for now
+      close(new_socket);      
+      new_socket = -1;
     }
   }
 
