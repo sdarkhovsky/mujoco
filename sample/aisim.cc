@@ -144,13 +144,13 @@ void send_controls(const char* actuator_name, mjtNum actuator_val) {
 
 struct CommunicateParams {
   int terminate;
+  int new_socket;
+  int server_fd;
   char buf[1000];
 };
 
 void communicate(CommunicateParams* communicate_params)
 {
-  int server_fd = -1;
-  int new_socket = -1;
   ssize_t valread;
   struct sockaddr_in address;
   int opt = 1;
@@ -158,66 +158,71 @@ void communicate(CommunicateParams* communicate_params)
   char buffer[1024] = { 0 };
   char hello[] = "Hello from server";
 
+  communicate_params->server_fd = -1;
+  communicate_params->new_socket = -1;
+
   while(!communicate_params->terminate) {
 
-    if (server_fd < 0) {
+    if (communicate_params->server_fd < 0) {
       // Creating socket file descriptor
-      if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      if ((communicate_params->server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket failed");
-        return;
+        break;
       }
 
       // Forcefully attaching socket to the port 8080
-      if (setsockopt(server_fd, SOL_SOCKET,
+      if (setsockopt(communicate_params->server_fd, SOL_SOCKET,
             SO_REUSEADDR | SO_REUSEPORT, &opt,
             sizeof(opt))) {
         perror("setsockopt");
-        return;
+        break;
       }
       address.sin_family = AF_INET;
       address.sin_addr.s_addr = INADDR_ANY;
       address.sin_port = htons(PORT);
 
       // Forcefully attaching socket to the port 8080
-      if (bind(server_fd, (struct sockaddr*)&address,
+      if (bind(communicate_params->server_fd, (struct sockaddr*)&address,
           sizeof(address))
         < 0) {
         perror("bind failed");
-        return;
+        break;
       }
 
-      if (listen(server_fd, 3) < 0) {
+      if (listen(communicate_params->server_fd, 3) < 0) {
         perror("listen");
-        return;
+        break;
       }
     }
 
-    if (new_socket < 0) {
-      new_socket = accept(server_fd, (struct sockaddr*)&address, &addrlen);
-      if (new_socket < 0) {
+    if (communicate_params->new_socket < 0) {
+      communicate_params->new_socket = accept(communicate_params->server_fd, (struct sockaddr*)&address, &addrlen);
+      if (communicate_params->new_socket < 0) {
         perror("accept");
-        return;
+        break;
       }
     }
 
-    if (new_socket >= 0) {    
-      valread = read(new_socket, buffer,
+    if (communicate_params->new_socket >= 0) {    
+      valread = read(communicate_params->new_socket, buffer,
             1024 - 1); // subtract 1 for the null
                   // terminator at the end
       if (valread > 0) {
         printf("%s\n", buffer);
-        send(new_socket, hello, strlen(hello), 0);
+        send(communicate_params->new_socket, hello, strlen(hello), 0);
       }
-      // for simplicity close socket after one exchange for now
-      close(new_socket);      
-      new_socket = -1;
+      else {  
+        printf("valread=%ld\n", valread);
+        close(communicate_params->new_socket);      
+        communicate_params->new_socket = -1;        
+      }
     }
   }
 
   // closing the connected socket
-  close(new_socket);
+  close(communicate_params->new_socket);
   // closing the listening socket
-  close(server_fd);
+  close(communicate_params->server_fd);
 }
 
 /*
@@ -323,8 +328,12 @@ int main(int argc, const char** argv) {
   }
 
   communicate_params.terminate = 1;
+  // shutdown the socket before blocking to interrupt the accept blocking 
+  // (https://stackoverflow.com/questions/35754754/how-to-terminate-a-socket-accept-blocking)
+  shutdown(communicate_params.server_fd, SHUT_RDWR);
+  close(communicate_params.server_fd);  
+  close(communicate_params.new_socket);
   communication_thread.join();  
-
 
   //free visualization storage
   mjv_freeScene(&scn);
