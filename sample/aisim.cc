@@ -133,15 +133,6 @@ std::vector<mjtNum> CtrlNoise(const mjModel* m) {
   return ctrl;
 }
 
-void send_controls(const char* actuator_name, mjtNum actuator_val) {
-    for (int i = 0; i < m->nu; i++) {
-      if (!std::strcmp(actuator_name, m->names + m->name_actuatoradr[i])) {
-          mju_copy(&d->ctrl[i], &actuator_val, 1);
-          break;
-      }
-    }
-}
-
 struct CommunicateParams {
   int terminate;
   int new_socket;
@@ -149,14 +140,35 @@ struct CommunicateParams {
   char buf[1000];
 };
 
+
+void process_command(CommunicateParams* communicate_params) {
+    //const char* actuator_name;
+    //mjtNum actuator_val;
+
+    char actuator_name[100] = {0};  // see actuator in humanoid.xml, e.g. elbow_right, hip_x_right, etc.
+    double actuator_val;
+
+    // todo: make sure no buffer overflow with actuator_name
+    std::sscanf(communicate_params->buf, "%s %le", actuator_name, &actuator_val);  
+    std::memset(communicate_params->buf, 0, sizeof(communicate_params->buf));    
+
+    for (int i = 0; i < m->nu; i++) {
+      if (!std::strcmp(actuator_name, m->names + m->name_actuatoradr[i])) {
+          printf("Control: %s %lf", actuator_name, actuator_val);
+          mju_copy(&d->ctrl[i], &actuator_val, 1);
+          break;
+      }
+    }
+}
+
 void communicate(CommunicateParams* communicate_params)
 {
   ssize_t valread;
   struct sockaddr_in address;
   int opt = 1;
   socklen_t addrlen = sizeof(address);
-  char buffer[1024] = { 0 };
   char hello[] = "Hello from server";
+  std::memset(communicate_params->buf, 0, sizeof(communicate_params->buf));      
 
   communicate_params->server_fd = -1;
   communicate_params->new_socket = -1;
@@ -204,11 +216,11 @@ void communicate(CommunicateParams* communicate_params)
     }
 
     if (communicate_params->new_socket >= 0) {    
-      valread = read(communicate_params->new_socket, buffer,
-            1024 - 1); // subtract 1 for the null
+      valread = read(communicate_params->new_socket, communicate_params->buf,
+            sizeof(communicate_params->buf) - 1); // subtract 1 for the null
                   // terminator at the end
       if (valread > 0) {
-        printf("%s\n", buffer);
+        printf("%s\n", communicate_params->buf);
         send(communicate_params->new_socket, hello, strlen(hello), 0);
       }
       else {  
@@ -234,23 +246,10 @@ gdb --args ./aisim ../model/humanoid.xml hip_x_right 0.1
 // main function
 int main(int argc, const char** argv) {
 
-  char actuator_name[100] = {0};  // see actuator in humanoid.xml, e.g. elbow_right, hip_x_right, etc.
-  double actuator_val;
-
   // check command-line arguments
-  if (argc < 2) {
-    std::printf(" USAGE:  aisim modelfile [actuator_name actuator_val]\n");
+  if (argc != 2) {
+    std::printf(" USAGE:  aisim modelfile\n");
     return 0;
-  }
-
-  if (argc > 2) {
-    if (std::strlen(argv[2]) > sizeof(actuator_name)/sizeof(char)) {
-      printf("actuator_name too long\n");
-      return 1;
-    }
-
-    std::sscanf(argv[2], "%s", actuator_name);  
-    std::sscanf(argv[3], "%lf", &actuator_val);  
   }
 
   // load and compile model
@@ -304,9 +303,9 @@ int main(int argc, const char** argv) {
   while (!glfwWindowShouldClose(window)) {
 
     if (duration_cast<duration<double>>(system_clock::now() - prev_time).count() > 1.0/20.0) {
-      if (std::strlen(actuator_name) > 0) {
-        send_controls(actuator_name, actuator_val);
-      }
+
+      process_command(&communicate_params);
+
       mj_step(m, d);    
       prev_time = system_clock::now();
       //actuator_val=actuator_val+0.01;
