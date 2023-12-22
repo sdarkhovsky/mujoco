@@ -237,10 +237,25 @@ void communicate(CommunicateParams* communicate_params)
   close(communicate_params->server_fd);
 }
 
+void sensors(const mjModel* m, const mjData* d) {
+ // loop over sensors
+  for (int n=0; n<m->nsensor; n++) {
+    // https://www.ibm.com/docs/en/ztpf/2020?topic=warnings-unused-variables-functions
+    auto __attribute__ ((unused)) type = m->sensor_type[n]; 
+    auto __attribute__ ((unused)) cutoff = m->sensor_cutoff[n];
+    auto __attribute__ ((unused)) sensor_name = m->names + m->name_sensoradr[n];
+    int adr = m->sensor_adr[n];
+    int dim = m->sensor_dim[n];
+    for (int i=0; i<dim; i++) {
+        auto __attribute__ ((unused)) sensordata = d->sensordata[adr+i];
+    }
+  }
+}
+
 /*
 command line examples:  
-gdb --args ./aisim ../model/humanoid.xml hip_x_right 0.1
-./aisim ../model/humanoid.xml elbow_right 0.05 
+gdb --args ./aisim ../model/humanoid.xml
+./aisim ../model/humanoid.xml
 */
 
 // main function
@@ -308,7 +323,7 @@ int main(int argc, const char** argv) {
 
       mj_step(m, d);    
       prev_time = system_clock::now();
-      //actuator_val=actuator_val+0.01;
+      sensors(m, d);
     }
 
     // get framebuffer viewport
