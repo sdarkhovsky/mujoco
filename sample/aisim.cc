@@ -161,13 +161,30 @@ void process_command(CommunicateParams* communicate_params) {
     }
 }
 
+void read_sensors(const mjModel* m, const mjData* d, std::string& sensor_data) {
+  sensor_data.clear();
+  // loop over sensors
+  for (int n=0; n<m->nsensor; n++) {
+    //auto type = m->sensor_type[n]; 
+    //auto cutoff = m->sensor_cutoff[n];
+    auto sensor_name = m->names + m->name_sensoradr[n];
+    sensor_data += " " + std::string(sensor_name);
+    int adr = m->sensor_adr[n];
+    int dim = m->sensor_dim[n];
+    for (int i=0; i<dim; i++) {
+      sensor_data += " " + std::to_string(d->sensordata[adr+i]);
+    }
+  }
+
+  return;
+}
+
 void communicate(CommunicateParams* communicate_params)
 {
   ssize_t valread;
   struct sockaddr_in address;
   int opt = 1;
   socklen_t addrlen = sizeof(address);
-  char hello[] = "Hello from server";
   std::memset(communicate_params->buf, 0, sizeof(communicate_params->buf));      
 
   communicate_params->server_fd = -1;
@@ -221,7 +238,10 @@ void communicate(CommunicateParams* communicate_params)
                   // terminator at the end
       if (valread > 0) {
         printf("%s\n", communicate_params->buf);
-        send(communicate_params->new_socket, hello, strlen(hello), 0);
+
+        std::string sensor_data;
+        read_sensors(m, d, sensor_data);
+        send(communicate_params->new_socket, sensor_data.c_str(), sensor_data.size(), 0);
       }
       else {  
         printf("valread=%ld\n", valread);
@@ -237,20 +257,6 @@ void communicate(CommunicateParams* communicate_params)
   close(communicate_params->server_fd);
 }
 
-void sensors(const mjModel* m, const mjData* d) {
- // loop over sensors
-  for (int n=0; n<m->nsensor; n++) {
-    // https://www.ibm.com/docs/en/ztpf/2020?topic=warnings-unused-variables-functions
-    auto __attribute__ ((unused)) type = m->sensor_type[n]; 
-    auto __attribute__ ((unused)) cutoff = m->sensor_cutoff[n];
-    auto __attribute__ ((unused)) sensor_name = m->names + m->name_sensoradr[n];
-    int adr = m->sensor_adr[n];
-    int dim = m->sensor_dim[n];
-    for (int i=0; i<dim; i++) {
-        auto __attribute__ ((unused)) sensordata = d->sensordata[adr+i];
-    }
-  }
-}
 
 /*
 command line examples:  
@@ -323,7 +329,6 @@ int main(int argc, const char** argv) {
 
       mj_step(m, d);    
       prev_time = system_clock::now();
-      sensors(m, d);
     }
 
     // get framebuffer viewport
