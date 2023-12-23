@@ -48,5 +48,15 @@
     <body mocap="true" pos="-1.0 1.0 0" zaxis=".5 0 1">
       <geom type="capsule" size=".1 .1" material="matmarble" group="1" condim="1"/>
     </body>
+
+    <body pos="1.0 1.0 2.0">
+      <freejoint/>
+      <composite type="box" count="7 7 7" spacing="0.04">
+        <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>
+        <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>
+        <joint kind="main" solreffix="0.03 1" solimpfix="0 .1 .01"/>
+      </composite>
+    </body>
+
   </worldbody>
 </mujoco>
