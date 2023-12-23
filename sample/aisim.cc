@@ -168,9 +168,13 @@ void read_sensors(const mjModel* m, const mjData* d, std::string& sensor_data) {
     //auto type = m->sensor_type[n]; 
     //auto cutoff = m->sensor_cutoff[n];
     auto sensor_name = m->names + m->name_sensoradr[n];
-    sensor_data += " " + std::string(sensor_name);
+    if (n > 0) {
+      sensor_data += " ";  
+    }
+    sensor_data += std::string(sensor_name);
     int adr = m->sensor_adr[n];
     int dim = m->sensor_dim[n];
+    sensor_data += " " + std::to_string(dim);
     for (int i=0; i<dim; i++) {
       sensor_data += " " + std::to_string(d->sensordata[adr+i]);
     }
